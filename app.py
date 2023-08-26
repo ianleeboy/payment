@@ -10,8 +10,9 @@ from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,ImageSendMessage,StickerSendMessage,FollowEvent,UnfollowEvent,
 )
 from linebot.models import *
-from database import db_session, init_db
+from models.database import db_session, init_db
 from models.user import Users
+from models.product import Products
 
 app = Flask(__name__)
 
@@ -100,14 +101,40 @@ def handle_message(event):
 ##################################使用說明 選單###############################################
     if message_text == '@使用說明':
         about_us_event(event)
+    elif message_text == '我想訂購商品':
+        message = Products.list_all()
+    if message:
+        line_bot_api.reply_message(
+            event.reply_token,message)
 
-    line_bot_api.reply_message(
-        event.reply_token, TextSendMessage(text=''))
 
 @handler.add(FollowEvent)
 def handle_follow(event):
     welcome_msg = """  """
 
+
+#初始化產品資訊
+@app.before_first_request
+def init_products():
+    # init db
+    result = init_db()#先判斷資料庫有沒有建立，如果還沒建立就會進行下面的動作初始化產品
+    if result:
+        init_data = [Products(name='絨毛玩偶',
+                              product_image_url='https://imgur.com/bJjKXes.jpg',
+                              price=1000,
+                              description='15cm 大小的填充玩偶，可在手上把玩的噴火龍'),
+                     Products(name='造型布偶',
+                              product_image_url='https://imgur.com/58DTtMq.jpg',
+                              price=500,
+                              description='可愛又迷人的四四方方玩偶，有各種不同的大小'),
+                     Products(name='和菓子',
+                              price=50,
+                              product_image_url='https://imgur.com/Fo8CHK0.jpg',
+                              description='有著皮卡丘的外型，有著甜美口味的糖果')]
+        db_session.bulk_save_objects(init_data)#透過這個方法一次儲存list中的產品
+        db_session.commit()#最後commit()才會存進資料庫
+        #記得要from models.product import Products在app.py
+        
 if __name__ == "__main__":
-    init_db()
+    init_products()
     app.run()
