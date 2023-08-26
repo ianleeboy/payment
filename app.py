@@ -29,19 +29,19 @@ def about_us_event(event):
                 "emojiId": "225"
             },
             {
-                "index": 17,
+                "index": 23,
                 "productId": "5ac21184040ab15980c9b43a",
                 "emojiId": "225"
             }
         ]
 
-    text_message = TextSendMessage(text='''$ Master RenderP $
-Hello! 您好，歡迎您成為 Master RenderP 的好友！
+    text_message = TextSendMessage(text='''$ Super Easy Assistant $
+Hello! 您好，歡迎您成為 Super Easy Assistant 的好友！
 
-我是Master 支付小幫手 
+我是 Your Dear 支付小幫手 
 
--這裡有商城，還可以購物喔~
--直接點選下方【圖中】選單功能
+-這裡有超級商場，還可以選購商品喔~
+-直接點選下方各項選單功能
 
 -期待您的光臨！''', emojis=emoji)
 
@@ -80,7 +80,7 @@ def handle_message(event):
     message_text = str(event.message.text).lower()
 
 ##################################使用說明 選單###############################################
-    if message_text == '使用說明':
+    if message_text == '@使用說明':
         about_us_event(event)
 
     line_bot_api.reply_message(
