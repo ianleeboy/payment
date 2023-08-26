@@ -95,9 +95,9 @@ def callback():
 def handle_message(event):
     
     get_or_create_user(event.source.user_id)
-    profile = line_bot_api.get_profile(event.source.user_id)
+    #profile = line_bot_api.get_profile(event.source.user_id)
     cart = Cart(user_id = event.source.user_id)
-    uid = profile.user_id
+    #uid = profile.user_id
     message_text = str(event.message.text).lower()
 
 ##################################使用說明 選單###############################################
@@ -105,28 +105,28 @@ def handle_message(event):
         about_us_event(event)
     elif message_text == '我想訂購商品':
         message = Products.list_all()
-    elif "I'd like to have" in message_text:
-        product_name = message_text.split(',')[0]
-        num_item = message_text.rsplit(':')[1]
-        product = db_session.query(Products).filter(Products.name.ilike(product_name)).first()
+    elif "i'd like to have" in message_text:
+            product_name = message_text.split(',')[0]
+            num_item = message_text.rsplit(':')[1]
+            product = db_session.query(Products).filter(Products.name.ilike(product_name)).first()
 
-        if product:
+            if product:
 
-            cart.add(product=product_name, num=num_item)
-            #然後利用confirm_template的格式詢問用戶是否還要加入？
-            confirm_template = ConfirmTemplate(
-                text='Sure, {} {}, anything else?'.format(num_item, product_name),
-                actions=[
-                    MessageAction(label='Add', text='add'),
-                    MessageAction(label="That's it", text="That's it")
-                ])
+                cart.add(product=product_name, num=num_item)
+                #然後利用confirm_template的格式詢問用戶是否還要加入？
+                confirm_template = ConfirmTemplate(
+                    text='Sure, {} {}, anything else?'.format(num_item, product_name),
+                    actions=[
+                        MessageAction(label='Add', text='add'),
+                        MessageAction(label="That's it", text="That's it")
+                    ])
 
-            message = TemplateSendMessage(alt_text='anything else?', template=confirm_template)
+                message = TemplateSendMessage(alt_text='anything else?', template=confirm_template)
 
-        else:
-            message = TextSendMessage(text="Sorry, we don't have {}".format(product_name))
+            else:
+                message = TextSendMessage(text="Sorry, we don't have {}".format(product_name))
 
-        print(cart.bucket())
+            print(cart.bucket())
 
     elif message_text in ['my cart', 'cart', "that's it"]:
         
