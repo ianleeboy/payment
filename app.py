@@ -10,8 +10,13 @@ from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,ImageSendMessage,StickerSendMessage,FollowEvent,UnfollowEvent,
 )
 from linebot.models import *
-from database import db_session, init_db
+from models.database import db_session
 from models.user import Users
+
+from models.product import Products
+from sqlalchemy.sql.expression import text
+from models.database import db_session, init_db
+
 from models.product import Products
 from models.cart import Cart
 from models.order import Orders
@@ -24,11 +29,13 @@ import uuid
 
 app = Flask(__name__)
 
+
 line_bot_api = LineBotApi(Config.CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(Config.CHANNEL_SECRET)
 
+# 1654645649
+# 89d3d4609dc0feffb7971e8c39c4b221
 app = Flask(__name__)
-
 
 #建立或取得user
 def get_or_create_user(user_id):
@@ -43,8 +50,6 @@ def get_or_create_user(user_id):
         db_session.commit()
 
     return user
-
-
 def about_us_event(event):
     emoji = [
             {
@@ -53,20 +58,19 @@ def about_us_event(event):
                 "emojiId": "225"
             },
             {
-                "index": 23,
+                "index": 17,
                 "productId": "5ac21184040ab15980c9b43a",
                 "emojiId": "225"
             }
         ]
 
-    text_message = TextSendMessage(text='''$ Super Easy Assistant $
-Hello! 您好，歡迎您成為 Super Easy Assistant 的好友！
+    text_message = TextSendMessage(text='''$ Master RenderP $
+Hello! 您好，歡迎您成為 Master RenderP 的好友！
 
-我是 Your Dear 支付小幫手 
+我是Master 支付小幫手 
 
--這裡有超級商場，還可以選購商品喔~
-                                   
--直接點選下方各項選單功能
+-這裡有商城，還可以購物喔~
+-直接點選下方【圖中】選單功能
 
 -期待您的光臨！''', emojis=emoji)
 
@@ -95,65 +99,63 @@ def callback():
         abort(400)
 
     return 'OK'
-	
+
+# 處理訊息
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    
+    #event有什麼資料？詳見補充
     get_or_create_user(event.source.user_id)
-    #profile = line_bot_api.get_profile(event.source.user_id)
-    cart = Cart(user_id = event.source.user_id)
-    #uid = profile.user_id
+    
     message_text = str(event.message.text).lower()
-
-##################################使用說明 選單###############################################
+    cart =  Cart(user_id = event.source.user_id)
+    message = None
+    ######################## 使用說明 選單 油價查詢################################
     if message_text == '@使用說明':
         about_us_event(event)
     elif message_text in ['我想訂購商品', 'add']:
         message = Products.list_all()
+    #當user要訂購時就會執行這段程式
     elif "i'd like to have" in message_text:
-        product_name = message_text.split(',')[0]
-        num_item = message_text.rsplit(':')[1]
-        product = db_session.query(Products).filter(Products.name.ilike(product_name)).first()
 
-        if product:
+            product_name = message_text.split(',')[0]#利用split(',')拆解並取得第[0]個位置的值
+            # 例如 Coffee,i'd like to have經過split(',')拆解並取得第[0]個位置後就是 Coffee
+            num_item = message_text.rsplit(':')[1]#同理產品就用(':')拆解取得第[1]個位置的值
+            #資料庫搜尋是否有這個產品名稱
+            product = db_session.query(Products).filter(Products.name.ilike(product_name)).first()
+            #如果有這個產品名稱就會加入
+            if product:
 
-            cart.add(product=product_name, num=num_item)
-            #然後利用confirm_template的格式詢問用戶是否還要加入？
-            confirm_template = ConfirmTemplate(
-                text='Sure, {} {}, anything else?'.format(num_item, product_name),
-                actions=[
-                    MessageAction(label='Add', text='add'),
-                    MessageAction(label="That's it", text="That's it")
-                ])
+                cart.add(product=product_name, num=num_item)
+                #然後利用confirm_template的格式詢問用戶是否還要加入？
+                confirm_template = ConfirmTemplate(
+                    text='Sure, {} {}, anything else?'.format(num_item, product_name),
+                    actions=[
+                        MessageAction(label='Add', text='add'),
+                        MessageAction(label="That's it", text="That's it")
+                    ])
 
-            message = TemplateSendMessage(alt_text='anything else?', template=confirm_template)
+                message = TemplateSendMessage(alt_text='anything else?', template=confirm_template)
 
-        else:
-            message = TextSendMessage(text="Sorry, we don't have {}".format(product_name))
+            else:
+                #如果沒有找到產品名稱就會回給用戶沒有這個產品
+                message = TextSendMessage(text="Sorry, We don't have {}.".format(product_name))
 
-        print(cart.bucket())
+            print(cart.bucket())
+    elif message_text in ['my cart', 'cart', "that's it"]:#當出現'my cart', 'cart', "that's it"時
 
-    elif message_text in ['my cart', 'cart', "that's it"]:
-        
-        if cart.bucket():
-            message = cart.display()
+        if cart.bucket():#當購物車裡面有東西時
+            message = cart.display()#就會使用 display()顯示購物車內容
         else:
             message = TextSendMessage(text='Your cart is empty now.')
-
     elif message_text == 'empty cart':
 
         cart.reset()
+
         message = TextSendMessage(text='Your cart is empty now.')
-    
     if message:
         line_bot_api.reply_message(
-            event.reply_token,message)
-
-
-#@handler.add(FollowEvent)
-#def handle_follow(event):
-#    welcome_msg = """  """
-
+        event.reply_token,
+        message) 
 @handler.add(PostbackEvent)
 def handle_postback(event):
     data = dict(parse_qsl(event.postback.data))#先將postback中的資料轉成字典
@@ -229,7 +231,6 @@ def handle_postback(event):
         line_bot_api.reply_message(event.reply_token, [message])
 
     return 'OK'
-
 @app.route("/confirm")
 def confirm():
     transaction_id = request.args.get('transactionId')
@@ -247,29 +248,50 @@ def confirm():
         line_bot_api.push_message(to=order.user_id, messages=message)
 
         return '<h1>Your payment is successful. thanks for your purchase.</h1>'
-    
+
 #初始化產品資訊
 @app.before_first_request
 def init_products():
     # init db
     result = init_db()#先判斷資料庫有沒有建立，如果還沒建立就會進行下面的動作初始化產品
     if result:
-        init_data = [Products(name='絨毛玩偶',
-                              product_image_url='https://imgur.com/bJjKXes.jpg',
-                              price=1000,
-                              description='15cm 大小的填充玩偶，可在手上把玩的噴火龍'),
-                     Products(name='造型布偶',
-                              product_image_url='https://imgur.com/58DTtMq.jpg',
-                              price=500,
-                              description='可愛又迷人的四四方方玩偶，有各種不同的大小'),
-                     Products(name='和菓子',
-                              price=50,
-                              product_image_url='https://imgur.com/Fo8CHK0.jpg',
-                              description='有著皮卡丘的外型，有著甜美口味的糖果')]
+        init_data = [Products(name='Coffee',
+                              product_image_url='https://i.imgur.com/DKzbk3l.jpg',
+                              price=150,
+                              description='nascetur ridiculus mus. Donec quam felis, ultricies'),
+                     Products(name='Tea',
+                              product_image_url='https://i.imgur.com/PRTxyhq.jpg',
+                              price=120,
+                              description='adipiscing elit. Aenean commodo ligula eget dolor'),
+                     Products(name='Cake',
+                              price=180,
+                              product_image_url='https://i.imgur.com/PRm22i8.jpg',
+                              description='Aenean massa. Cum sociis natoque penatibus')]
         db_session.bulk_save_objects(init_data)#透過這個方法一次儲存list中的產品
         db_session.commit()#最後commit()才會存進資料庫
         #記得要from models.product import Products在app.py
         
+        
+            
+            
+
+
+@handler.add(FollowEvent)
+def handle_follow(event):
+    welcome_msg = """Hello! 您好，歡迎您成為 Master Finance 的好友！
+
+我是Master 財經小幫手 
+
+-這裡有股票，匯率資訊喔~
+-直接點選下方【圖中】選單功能
+
+-期待您的光臨！"""
+
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=welcome_msg))
+
+
 if __name__ == "__main__":
     init_products()
     app.run()

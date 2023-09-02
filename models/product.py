@@ -1,17 +1,20 @@
+# -*- coding: utf-8 -*-
 from sqlalchemy import Column, String, Integer
 from linebot.models import *
-from database import Base, db_session
+from models.database import Base, db_session
 from urllib.parse import quote
+
 
 
 class Products(Base):
     __tablename__ = 'products'
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    price = Column(Integer)
-    description = Column(String)
-    product_image_url = Column(String)
+    id = Column(Integer, primary_key=True)#主鍵
+    name = Column(String)#產品名稱
+    price = Column(Integer)#產品價格
+    description = Column(String)#產品說明
+    product_image_url = Column(String)#產品圖片
+    #列出所有的產品
 
     #列出所有的產品
     @staticmethod
@@ -59,7 +62,7 @@ class Products(Base):
                             style='primary',
                             color='#1DB446',
                             action=URIAction(label='Add to Cart',
-                                             uri='line://oaMessage/{base_id}/?{message}'.format(base_id='@810invbz',
+                                             uri='line://oaMessage/{base_id}/?{message}'.format(base_id='@264fvpez',
                                                                                                 message=quote("{product}, I'd like to have:".format(product=product.name)))),
                         )
                     ]
@@ -73,4 +76,3 @@ class Products(Base):
         message = FlexSendMessage(alt_text='products', contents=carousel_container)
 
         return message
-        
