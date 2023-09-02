@@ -140,16 +140,19 @@ def handle_message(event):
         else:
             message = TextSendMessage(text='Your cart is empty now.')
 
+    elif message_text == 'empty cart':
+
+        cart.reset()
+        message = TextSendMessage(text='Your cart is empty now.')
     
     if message:
         line_bot_api.reply_message(
             event.reply_token,message)
 
 
-@handler.add(FollowEvent)
-def handle_follow(event):
-    welcome_msg = """  """
-
+#@handler.add(FollowEvent)
+#def handle_follow(event):
+#    welcome_msg = """  """
 
 @handler.add(PostbackEvent)
 def handle_postback(event):
@@ -227,7 +230,6 @@ def handle_postback(event):
 
     return 'OK'
 
-
 @app.route("/confirm")
 def confirm():
     transaction_id = request.args.get('transactionId')
@@ -245,8 +247,7 @@ def confirm():
         line_bot_api.push_message(to=order.user_id, messages=message)
 
         return '<h1>Your payment is successful. thanks for your purchase.</h1>'
-
-
+    
 #初始化產品資訊
 @app.before_first_request
 def init_products():
