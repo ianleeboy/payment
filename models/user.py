@@ -1,6 +1,6 @@
 from sqlalchemy import Column, DateTime, String, func
 from sqlalchemy.orm import relationship
-from models.database import Base
+from database import Base
 
 
 class Users(Base):
@@ -10,3 +10,5 @@ class Users(Base):
     nick_name = Column(String)
     image_url = Column(String(length=256))
     created_time = Column(DateTime, default=func.now())
+
+    orders = relationship('Orders', backref='user')

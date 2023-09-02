@@ -10,17 +10,22 @@ from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,ImageSendMessage,StickerSendMessage,FollowEvent,UnfollowEvent,
 )
 from linebot.models import *
-from models.database import db_session, init_db
+from database import db_session, init_db
 from models.user import Users
 from models.product import Products
 from models.cart import Cart
+from models.order import Orders
+from models.item import Items
+from config import Config
+from models.linepay import LinePay
+from urllib.parse import parse_qsl
+import uuid
+
 
 app = Flask(__name__)
 
-
-line_bot_api = LineBotApi('HUuFj/GeLkzih7DL7FNLGEeAf1fJAC9T+rmVhcYoHyy6t+A0u/D3/EGvju5UvNBmBtVqAaOxTrrspTWzSnGC0ATcRXcayIdHUxhUMws/aaEBwe1x44NBfhXLbZ58YPjwdnfUV1KVz8nq4jJAGhs5OAdB04t89/1O/w1cDnyilFU=')
-handler = WebhookHandler('83dac60c0a8cee55265f906542bc1e98')
-
+line_bot_api = LineBotApi(Config.CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(Config.CHANNEL_SECRET)
 
 app = Flask(__name__)
 
@@ -103,7 +108,7 @@ def handle_message(event):
 ##################################使用說明 選單###############################################
     if message_text == '@使用說明':
         about_us_event(event)
-    elif message_text == '我想訂購商品':
+    elif message_text == ['我想訂購商品', 'add']:
         message = Products.list_all()
     elif "i'd like to have" in message_text:
         product_name = message_text.split(',')[0]
@@ -144,6 +149,102 @@ def handle_message(event):
 @handler.add(FollowEvent)
 def handle_follow(event):
     welcome_msg = """  """
+
+
+@handler.add(PostbackEvent)
+def handle_postback(event):
+    data = dict(parse_qsl(event.postback.data))#先將postback中的資料轉成字典
+
+    action = data.get('action')#再get action裡面的值
+
+    if action == 'checkout':#如果action裡面的值是checkout的話才會執行結帳的動作
+
+        user_id = event.source.user_id#取得user_id
+
+        cart = Cart(user_id=user_id)#透過user_id取得購物車
+
+        if not cart.bucket():#判斷購物車裡面有沒有資料，沒有就回傳購物車是空的
+            message = TextSendMessage(text='Your cart is empty now.')
+
+            line_bot_api.reply_message(event.reply_token, [message])
+
+            return 'OK'
+
+        order_id = uuid.uuid4().hex#如果有訂單的話就會使用uuid的套件來建立，因為它可以建立獨一無二的值
+
+        total = 0 #總金額
+        items = [] #暫存訂單項目
+
+        for product_name, num in cart.bucket().items():#透過迴圈把項目轉成訂單項目物件
+            #透過產品名稱搜尋產品是不是存在
+            product = db_session.query(Products).filter(Products.name.ilike(product_name)).first()
+            #接著產生訂單項目的物件
+            item = Items(product_id=product.id,
+                         product_name=product.name,
+                         product_price=product.price,
+                         order_id=order_id,
+                         quantity=num)
+
+            items.append(item)
+
+            total += product.price * int(num)#訂單價格 * 訂購數量
+        #訂單項目物件都建立後就會清空購物車
+        cart.reset()
+        #建立LinePay的物件
+        line_pay = LinePay()
+        #再使用line_pay.pay的方法，最後就會回覆像postman的格式
+        info = line_pay.pay(product_name='LSTORE',
+                            amount=total,
+                            order_id=order_id,
+                            product_image_url=Config.STORE_IMAGE_URL)
+        #取得付款連結和transactionId後
+        pay_web_url = info['paymentUrl']['web']
+        transaction_id = info['transactionId']
+        #接著就會產生訂單
+        order = Orders(id=order_id,
+                       transaction_id=transaction_id,
+                       is_pay=False,
+                       amount=total,
+                       user_id=user_id)
+        #接著把訂單和訂單項目加入資料庫中
+        db_session.add(order)
+
+        for item in items:
+            db_session.add(item)
+
+        db_session.commit()
+        #最後告知用戶並提醒付款
+        message = TemplateSendMessage(
+            alt_text='Thank you, please go ahead to the payment.',
+            template=ButtonsTemplate(
+                text='Thank you, please go ahead to the payment.',
+                actions=[
+                    URIAction(label='Pay NT${}'.format(order.amount),
+                              uri=pay_web_url)
+                ]))
+
+        line_bot_api.reply_message(event.reply_token, [message])
+
+    return 'OK'
+
+
+@app.route("/confirm")
+def confirm():
+    transaction_id = request.args.get('transactionId')
+    order = db_session.query(Orders).filter(Orders.transaction_id == transaction_id).first()
+
+    if order:
+        line_pay = LinePay()
+        line_pay.confirm(transaction_id=transaction_id, amount=order.amount)
+
+        order.is_pay = True#確認收款無誤時就會改成已付款
+        db_session.commit()
+        
+        #傳收據給用戶
+        message = order.display_receipt()
+        line_bot_api.push_message(to=order.user_id, messages=message)
+
+        return '<h1>Your payment is successful. thanks for your purchase.</h1>'
 
 
 #初始化產品資訊
