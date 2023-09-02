@@ -108,7 +108,7 @@ def handle_message(event):
 ##################################使用說明 選單###############################################
     if message_text == '@使用說明':
         about_us_event(event)
-    elif message_text == ['我想訂購商品', 'add']:
+    elif message_text in ['我想訂購商品', 'add']:
         message = Products.list_all()
     elif "i'd like to have" in message_text:
         product_name = message_text.split(',')[0]
