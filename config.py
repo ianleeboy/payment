@@ -8,3 +8,5 @@ class Config:
 	LINE_PAY_SECRET = 'c68fdc6cccb2076b07aed3920777a3e6'
 
 	STORE_IMG_URL = 'https://i.imgur.com/c0HMasX.jpg'
+
+
